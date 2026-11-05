@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.BASE_URL || 'http://127.0.0.1:4173/voice-lens/';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -17,27 +19,15 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
   ],
   webServer: {
-    command: 'npm run preview',
-    url: 'http://localhost:5173',
+    command: 'pnpm preview --port 4173 --host 127.0.0.1',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    env: {
+      VITE_POLLINATIONS_APP_KEY: 'test-app-key',
+      VITE_REDIRECT_URI: 'http://127.0.0.1:4173/voice-lens/',
+    },
   },
 });

@@ -20,6 +20,8 @@ jobs:
     env:
       GITHUB_PAGES: true
       GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+      VITE_POLLINATIONS_APP_KEY: ${{ vars.VITE_POLLINATIONS_APP_KEY }}
+      VITE_REDIRECT_URI: ${{ vars.VITE_REDIRECT_URI }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

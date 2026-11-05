@@ -15,6 +15,7 @@ export function useTextAnalysis() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollinationsAbortRef = useRef<AbortController | null>(null);
   const textRef = useRef(state.text);
+  const isAnalyzingRef = useRef(state.isAnalyzing);
   // Track request generation to handle rapid re-analysis
   const requestGenerationRef = useRef(0);
 
@@ -23,15 +24,20 @@ export function useTextAnalysis() {
     textRef.current = state.text;
   }, [state.text]);
 
+  // Keep isAnalyzingRef in sync with state.isAnalyzing
+  useEffect(() => {
+    isAnalyzingRef.current = state.isAnalyzing;
+  }, [state.isAnalyzing]);
+
   const setText = useCallback((text: string) => {
     setState(prev => ({ ...prev, text, result: null, error: null }));
   }, []);
 
   const analyze = useCallback(async () => {
     // Read current state directly to avoid stale closure
-    const currentState = state;
-    if (currentState.isAnalyzing) return;
-    if (!currentState.text.trim()) return;
+    // textRef.current and isAnalyzingRef.current are kept in sync via useEffect
+    if (isAnalyzingRef.current) return;
+    if (!textRef.current.trim()) return;
 
     // Cancel any in-flight requests and increment generation
     if (abortControllerRef.current) {
@@ -122,7 +128,7 @@ export function useTextAnalysis() {
         }));
       }
     }
-  }, [state.isAnalyzing]);
+  }, []);
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {

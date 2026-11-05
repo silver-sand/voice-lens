@@ -102,7 +102,6 @@ export function App() {
               onAnalyze={handleAnalyze}
               isAnalyzing={isAnalyzing}
               findings={findings}
-              disabled={!text.trim()}
               placeholder={isConnected
                 ? 'Write naturally. Press Ctrl/Cmd+Enter to analyze your style.'
                 : 'Write naturally. Connect Pollen to unlock AI interpretation and rewrites.'}

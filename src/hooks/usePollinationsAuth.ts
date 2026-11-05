@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { generatePKCE, buildAuthUrl, exchangeCodeForToken, getStoredToken, clearStoredToken } from '../lib/pollinations/auth';
+import { generatePKCE, buildAuthUrl, exchangeCodeForToken, getStoredToken, clearStoredToken, isAuthConfigured } from '../lib/pollinations/auth';
 
 export function usePollinationsAuth() {
   // Initialize state from sessionStorage to avoid setState in effect
@@ -7,6 +7,7 @@ export function usePollinationsAuth() {
   const [isConnected, setIsConnected] = useState(() => !!getStoredToken());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured] = useState(() => isAuthConfigured());
 
   const handleCallbackRef = useRef<((code: string, state: string) => Promise<void>) | null>(null);
 
@@ -54,6 +55,10 @@ export function usePollinationsAuth() {
   }, []);
 
   const connect = useCallback(async () => {
+    if (!isConfigured) {
+      setError('OAuth is not configured. Please set VITE_POLLINATIONS_APP_KEY and VITE_REDIRECT_URI environment variables.');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -64,7 +69,7 @@ export function usePollinationsAuth() {
       setError(err instanceof Error ? err.message : 'Failed to initiate authentication');
       setIsLoading(false);
     }
-  }, []);
+  }, [isConfigured]);
 
   const disconnect = useCallback(() => {
     clearStoredToken();
@@ -80,5 +85,6 @@ export function usePollinationsAuth() {
     accessToken,
     connect,
     disconnect,
+    isConfigured,
   };
 }

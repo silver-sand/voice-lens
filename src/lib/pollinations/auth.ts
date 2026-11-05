@@ -1,12 +1,11 @@
-const PUBLISHED_APP_KEY = import.meta.env.VITE_POLLINATIONS_APP_KEY;
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
-
-if (!PUBLISHED_APP_KEY) {
-  throw new Error('VITE_POLLINATIONS_APP_KEY environment variable is required');
+// Lazy getters for environment variables - read at call time, not module load time
+// This prevents the module from throwing at import time when env vars are not set (e.g., GitHub Pages)
+function getEnvAppKey(): string | null {
+  return import.meta.env.VITE_POLLINATIONS_APP_KEY ?? null;
 }
 
-if (!REDIRECT_URI) {
-  throw new Error('VITE_REDIRECT_URI environment variable is required');
+function getEnvRedirectUri(): string | null {
+  return import.meta.env.VITE_REDIRECT_URI ?? null;
 }
 
 interface PKCEChallenge {
@@ -41,7 +40,19 @@ function generateState(): string {
   return base64UrlEncode(array.buffer);
 }
 
+/**
+ * Check if OAuth configuration is available (environment variables set).
+ * This is a synchronous, safe check that never throws.
+ */
+export function isAuthConfigured(): boolean {
+  return !!getEnvAppKey() && !!getEnvRedirectUri();
+}
+
 export async function generatePKCE(): Promise<PKCEChallenge> {
+  if (!isAuthConfigured()) {
+    throw new Error('OAuth not configured. Please set VITE_POLLINATIONS_APP_KEY and VITE_REDIRECT_URI environment variables.');
+  }
+
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const state = generateState();
@@ -54,20 +65,28 @@ export async function generatePKCE(): Promise<PKCEChallenge> {
 }
 
 export function buildAuthUrl(codeChallenge: string, state: string): string {
+  if (!isAuthConfigured()) {
+    throw new Error('OAuth not configured. Please set VITE_POLLINATIONS_APP_KEY and VITE_REDIRECT_URI environment variables.');
+  }
+
   const params = new URLSearchParams({
-    client_id: PUBLISHED_APP_KEY,
-    redirect_uri: REDIRECT_URI,
+    client_id: getEnvAppKey()!,
+    redirect_uri: getEnvRedirectUri()!,
     response_type: 'code',
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state,
-    scope: 'pollinations:generate',
+    scope: 'pollen:generate',
   });
 
-  return `https://gen.pollinations.ai/auth?${params.toString()}`;
+  return `https://enter.pollinations.ai/authorize?${params.toString()}`;
 }
 
 export async function exchangeCodeForToken(code: string, providedState: string): Promise<string> {
+  if (!isAuthConfigured()) {
+    throw new Error('OAuth not configured. Please set VITE_POLLINATIONS_APP_KEY and VITE_REDIRECT_URI environment variables.');
+  }
+
   const storedState = sessionStorage.getItem('pollinations_state');
   const codeVerifier = sessionStorage.getItem('pollinations_code_verifier');
 
@@ -80,13 +99,13 @@ export async function exchangeCodeForToken(code: string, providedState: string):
   }
 
   const formData = new URLSearchParams();
-  formData.append('client_id', PUBLISHED_APP_KEY);
+  formData.append('client_id', getEnvAppKey()!);
   formData.append('code', code);
-  formData.append('redirect_uri', REDIRECT_URI);
+  formData.append('redirect_uri', getEnvRedirectUri()!);
   formData.append('grant_type', 'authorization_code');
   formData.append('code_verifier', codeVerifier);
 
-  const response = await fetch('https://gen.pollinations.ai/auth/token', {
+  const response = await fetch('https://enter.pollinations.ai/api/oauth/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -127,10 +146,10 @@ export function isConnected(): boolean {
   return !!getStoredToken();
 }
 
-export function getAppKey(): string {
-  return PUBLISHED_APP_KEY;
+export function getAppKey(): string | null {
+  return getEnvAppKey();
 }
 
-export function getRedirectUri(): string {
-  return REDIRECT_URI;
+export function getRedirectUri(): string | null {
+  return getEnvRedirectUri();
 }
