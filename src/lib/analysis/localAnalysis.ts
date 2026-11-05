@@ -223,7 +223,8 @@ interface AnalysisOptions {
 function splitSentences(text: string): string[] {
   return text
     .replace(/\n+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
+    // Split on sentence boundaries, but avoid splitting on abbreviations
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
     .map(s => s.trim())
     .filter(s => s.length > 0);
 }
@@ -289,11 +290,23 @@ export function analyzeText(text: string, options: AnalysisOptions = {}) {
 export function findRepeatedPhrases(text: string, minLength: number = 2, minCount: number = 2): Finding[] {
   const findings: Finding[] = [];
   const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+  if (words.length < minLength) return findings;
+
   const seen = new Map<string, number[]>();
 
-  for (let n = minLength; n <= 6; n++) {
-    for (let i = 0; i <= words.length - n; i++) {
-      const phrase = words.slice(i, i + n).join(' ');
+  // Build n-grams for each position up to max length (6)
+  for (let i = 0; i <= words.length - minLength; i++) {
+    // Build phrase incrementally: start with minLength words
+    let phrase = words.slice(i, i + minLength).join(' ');
+
+    if (!seen.has(phrase)) {
+      seen.set(phrase, []);
+    }
+    seen.get(phrase)!.push(i);
+
+    // Extend to longer n-grams (up to 6 words)
+    for (let n = minLength + 1; n <= 6 && i + n <= words.length; n++) {
+      phrase += ' ' + words[i + n - 1];
       if (!seen.has(phrase)) {
         seen.set(phrase, []);
       }
@@ -325,8 +338,13 @@ export function findFormulaicPhrases(text: string): Finding[] {
   const findings: Finding[] = [];
   const lowerText = text.toLowerCase();
 
-  for (const phrase of FORMULAIC_PHRASES) {
-    const regex = new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'gi');
+  // Pre-compile regexes once to avoid creating them in the loop
+  const phraseRegexes = FORMULAIC_PHRASES.map(phrase => ({
+    phrase,
+    regex: new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'gi'),
+  }));
+
+  for (const { phrase, regex } of phraseRegexes) {
     const matches = lowerText.match(regex);
     if (matches && matches.length > 0) {
       findings.push({
@@ -349,8 +367,13 @@ export function findOverusedTransitions(text: string): Finding[] {
   const lowerText = text.toLowerCase();
   const transitionCounts = new Map<string, number>();
 
-  for (const transition of OVERUSED_TRANSITIONS) {
-    const regex = new RegExp(`\\b${escapeRegExp(transition)}\\b`, 'gi');
+  // Pre-compile regexes once
+  const transitionRegexes = OVERUSED_TRANSITIONS.map(transition => ({
+    transition,
+    regex: new RegExp(`\\b${escapeRegExp(transition)}\\b`, 'gi'),
+  }));
+
+  for (const { transition, regex } of transitionRegexes) {
     const matches = lowerText.match(regex);
     if (matches && matches.length > 0) {
       transitionCounts.set(transition, matches.length);
@@ -389,9 +412,9 @@ export function findRepetitiveSentenceOpenings(text: string): Finding[] {
 
   sentences.forEach((sentence, index) => {
     // Extract first 2 words as opening
-    const words = sentence.trim().toLowerCase().match(/^\w+(?:\s+\w+)?/);
-    if (words) {
-      const opening = words[0];
+    const match = sentence.trim().toLowerCase().match(/^(\w+(?:\s+\w+)?)/);
+    if (match) {
+      const opening = match[1];
       if (!openings.has(opening)) {
         openings.set(opening, []);
       }
@@ -452,15 +475,16 @@ export function findFormulaicSentenceStarts(text: string): Finding[] {
   let count = 0;
   const matched: string[] = [];
 
+  // Pre-compile starters into a single regex for efficiency
+  const starterRegex = new RegExp(`^(${FORMULAIC_SENTENCE_STARTS.map(escapeRegExp).join('|')})`, 'i');
+
   for (const sentence of sentences) {
-    const lower = sentence.toLowerCase().trim();
-    for (const starter of FORMULAIC_SENTENCE_STARTS) {
-      if (lower.startsWith(starter)) {
-        count++;
-        // Preserve original case from the sentence
-        matched.push(sentence.slice(0, starter.length));
-        break;
-      }
+    const trimmed = sentence.trim();
+    const match = trimmed.match(starterRegex);
+    if (match) {
+      count++;
+      // Preserve original case from the sentence
+      matched.push(trimmed.slice(0, match[0].length));
     }
   }
 

@@ -109,8 +109,28 @@ export async function interpretWithPollinations(
   }
 
   // Extract JSON from potential markdown code blocks
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  const jsonString = jsonMatch ? jsonMatch[0] : content;
+  // Try multiple strategies: markdown code block first, then first balanced JSON object
+  let jsonString = content;
+  const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (codeBlockMatch) {
+    jsonString = codeBlockMatch[1];
+  } else {
+    // Find the first complete JSON object by tracking braces
+    let braceCount = 0;
+    let startIndex = -1;
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === '{') {
+        if (braceCount === 0) startIndex = i;
+        braceCount++;
+      } else if (content[i] === '}') {
+        braceCount--;
+        if (braceCount === 0 && startIndex !== -1) {
+          jsonString = content.slice(startIndex, i + 1);
+          break;
+        }
+      }
+    }
+  }
 
   try {
     const parsed = JSON.parse(jsonString) as InterpretationResponse;

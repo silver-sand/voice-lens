@@ -15,12 +15,14 @@ export function usePollinationsAuth() {
     setError(null);
     try {
       const token = await exchangeCodeForToken(code, state);
+      // Combine state updates to avoid double render
       setAccessToken(token);
       setIsConnected(true);
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setError(errorMessage);
       setIsConnected(false);
       setAccessToken(null);
     } finally {

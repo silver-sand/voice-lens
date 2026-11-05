@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import type { Finding } from '../../lib/types';
+import { buildHighlightedSegments, type HighlightSegment } from '../../lib/highlighting';
 
 interface TextEditorProps {
   text: string;
@@ -14,18 +15,6 @@ interface TextEditorProps {
   findings: Finding[];
   disabled?: boolean;
   placeholder?: string;
-}
-
-const HIGHLIGHT_CLASS_MAP: Record<string, string> = {
-  repetition: 'highlight-repetition',
-  formulaic: 'highlight-formulaic',
-  sentence: 'highlight-sentence',
-  transition: 'highlight-transition',
-  vocabulary: 'highlight-vocabulary',
-};
-
-function getHighlightClass(category: Finding['category']): string {
-  return HIGHLIGHT_CLASS_MAP[category] || '';
 }
 
 export function TextEditor({
@@ -40,41 +29,11 @@ export function TextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
 
-  // Build highlighted text segments
-  const highlightedSegments = useCallback(() => {
-    if (!text || findings.length === 0) return [{ text, className: '' }];
-
-    const segments: { text: string; className: string }[] = [];
-    let lastIndex = 0;
-    const sortedFindings = [...findings].sort((a, b) => {
-      const aPos = text.toLowerCase().indexOf(a.evidence[0]?.toLowerCase() || '');
-      const bPos = text.toLowerCase().indexOf(b.evidence[0]?.toLowerCase() || '');
-      return aPos - bPos;
-    });
-
-    for (const finding of sortedFindings) {
-      for (const evidence of finding.evidence) {
-        const cleanEvidence = evidence.replace(/^\.\.\./, '').replace(/\.\.\.$/, '').trim();
-        const index = text.toLowerCase().indexOf(cleanEvidence.toLowerCase(), lastIndex);
-        if (index >= 0 && index >= lastIndex) {
-          if (index > lastIndex) {
-            segments.push({ text: text.slice(lastIndex, index), className: '' });
-          }
-          segments.push({
-            text: text.slice(index, index + cleanEvidence.length),
-            className: getHighlightClass(finding.category),
-          });
-          lastIndex = index + cleanEvidence.length;
-        }
-      }
-    }
-
-    if (lastIndex < text.length) {
-      segments.push({ text: text.slice(lastIndex), className: '' });
-    }
-
-    return segments.length > 0 ? segments : [{ text, className: '' }];
-  }, [text, findings]);
+  // Build highlighted text segments - memoized to avoid recomputation
+  const highlightedSegments = useMemo<HighlightSegment[]>(
+    () => buildHighlightedSegments(text, findings),
+    [text, findings]
+  );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
@@ -100,7 +59,7 @@ export function TextEditor({
           )}
           aria-hidden="true"
         >
-          {highlightedSegments().map((segment, i) => (
+          {highlightedSegments.map((segment, i) => (
             <span
               key={i}
               className={cn(
@@ -157,6 +116,7 @@ export function TextEditor({
                   animate={{ rotate: [0, 360] }}
                   transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+                  aria-label="Analyzing"
                 />
                 <span>Analyzing...</span>
               </motion.div>

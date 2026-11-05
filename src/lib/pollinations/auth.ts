@@ -1,5 +1,13 @@
-const PUBLISHED_APP_KEY = import.meta.env.VITE_POLLINATIONS_APP_KEY || 'your-published-app-key';
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || `${window.location.origin}/callback`;
+const PUBLISHED_APP_KEY = import.meta.env.VITE_POLLINATIONS_APP_KEY;
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
+
+if (!PUBLISHED_APP_KEY) {
+  throw new Error('VITE_POLLINATIONS_APP_KEY environment variable is required');
+}
+
+if (!REDIRECT_URI) {
+  throw new Error('VITE_REDIRECT_URI environment variable is required');
+}
 
 interface PKCEChallenge {
   codeVerifier: string;

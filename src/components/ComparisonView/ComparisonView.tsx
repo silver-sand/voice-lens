@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import type { Finding } from '../../lib/types';
+import { buildHighlightedSegments } from '../../lib/highlighting';
 
 interface ComparisonViewProps {
   originalText: string;
@@ -15,12 +16,12 @@ interface ComparisonViewProps {
   hasRewrite: boolean;
 }
 
-const CATEGORY_COLORS: Record<Finding['category'], string> = {
-  repetition: 'bg-yellow-500/20 border-yellow-500/30',
-  formulaic: 'bg-red-500/20 border-red-500/30',
-  sentence: 'bg-indigo-500/20 border-indigo-500/30',
-  transition: 'bg-purple-500/20 border-purple-500/30',
-  vocabulary: 'bg-teal-500/20 border-teal-500/30',
+const CATEGORY_COLORS_HEX: Record<Finding['category'], string> = {
+  repetition: '#eab308',
+  formulaic: '#ef4444',
+  sentence: '#6366f1',
+  transition: '#a855f7',
+  vocabulary: '#14b8a6',
 };
 
 function HighlightedText({ text, findings }: { text: string; findings: Finding[] }) {
@@ -32,50 +33,31 @@ function HighlightedText({ text, findings }: { text: string; findings: Finding[]
     );
   }
 
-  // Build highlighted segments
-  const segments: { text: string; className: string }[] = [];
-  let lastIndex = 0;
-  const sortedFindings = [...findings].sort((a, b) => {
-    const aPos = text.toLowerCase().indexOf(a.evidence[0]?.toLowerCase() || '');
-    const bPos = text.toLowerCase().indexOf(b.evidence[0]?.toLowerCase() || '');
-    return aPos - bPos;
-  });
-
-  for (const finding of sortedFindings) {
-    for (const evidence of finding.evidence) {
-      const cleanEvidence = evidence.replace(/^\.\.\./, '').replace(/\.\.\.$/, '').trim();
-      const index = text.toLowerCase().indexOf(cleanEvidence.toLowerCase(), lastIndex);
-      if (index >= 0 && index >= lastIndex) {
-        if (index > lastIndex) {
-          segments.push({ text: text.slice(lastIndex, index), className: '' });
-        }
-        segments.push({
-          text: text.slice(index, index + cleanEvidence.length),
-          className: CATEGORY_COLORS[finding.category] || '',
-        });
-        lastIndex = index + cleanEvidence.length;
-      }
-    }
-  }
-
-  if (lastIndex < text.length) {
-    segments.push({ text: text.slice(lastIndex), className: '' });
-  }
+  // Use shared highlighting logic
+  const segments = buildHighlightedSegments(text, findings);
 
   return (
     <div className="whitespace-pre-wrap break-words font-serif text-base leading-relaxed">
-      {segments.map((segment, i) => (
-        <span
-          key={i}
-          className={cn(
-            segment.className,
-            'rounded-[2px] px-[1px] -ml-[1px] border-b-2',
-            segment.className ? 'border-current' : 'border-transparent'
-          )}
-        >
-          {segment.text}
-        </span>
-      ))}
+      {segments.map((segment, i) => {
+        // Extract category from className (e.g., "highlight-repetition" -> "repetition")
+        const category = segment.className.replace('highlight-', '') as Finding['category'];
+        const hexColor = CATEGORY_COLORS_HEX[category];
+        const colorClass = segment.className
+          ? `bg-[${hexColor}]/20 border-[${hexColor}]/30`
+          : '';
+        return (
+          <span
+            key={i}
+            className={cn(
+              colorClass,
+              'rounded-[2px] px-[1px] -ml-[1px] border-b-2',
+              segment.className ? 'border-current' : 'border-transparent'
+            )}
+          >
+            {segment.text}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -96,26 +78,15 @@ function Legend() {
           key={key}
           className={cn(
             'flex items-center gap-1.5 px-2 py-1 rounded-full border',
-            CATEGORY_COLORS[key]
+            `bg-[${CATEGORY_COLORS_HEX[key]}]/20 border-[${CATEGORY_COLORS_HEX[key]}]/30`
           )}
         >
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(key) }} />
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS_HEX[key] }} />
           {label}
         </span>
       ))}
     </div>
   );
-}
-
-function getCategoryColor(category: Finding['category']): string {
-  const colors: Record<Finding['category'], string> = {
-    repetition: '#eab308',
-    formulaic: '#ef4444',
-    sentence: '#6366f1',
-    transition: '#a855f7',
-    vocabulary: '#14b8a6',
-  };
-  return colors[category];
 }
 
 export function ComparisonView({

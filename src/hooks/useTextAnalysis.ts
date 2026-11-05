@@ -14,22 +14,34 @@ export function useTextAnalysis() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollinationsAbortRef = useRef<AbortController | null>(null);
+  const textRef = useRef(state.text);
+  // Track request generation to handle rapid re-analysis
+  const requestGenerationRef = useRef(0);
+
+  // Keep textRef in sync with state.text
+  useEffect(() => {
+    textRef.current = state.text;
+  }, [state.text]);
 
   const setText = useCallback((text: string) => {
     setState(prev => ({ ...prev, text, result: null, error: null }));
   }, []);
 
   const analyze = useCallback(async () => {
-    if (state.isAnalyzing) return;
-    if (!state.text.trim()) return;
+    // Read current state directly to avoid stale closure
+    const currentState = state;
+    if (currentState.isAnalyzing) return;
+    if (!currentState.text.trim()) return;
 
-    // Cancel any in-flight requests
+    // Cancel any in-flight requests and increment generation
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     if (pollinationsAbortRef.current) {
       pollinationsAbortRef.current.abort();
     }
+
+    const currentGeneration = ++requestGenerationRef.current;
 
     abortControllerRef.current = new AbortController();
     pollinationsAbortRef.current = new AbortController();
@@ -45,11 +57,22 @@ export function useTextAnalysis() {
     try {
       // Step 1: Local deterministic analysis (fast, ~50ms)
       setState(prev => ({ ...prev, progress: 20 }));
-      const localResult = analyzeText(state.text);
+      const currentText = textRef.current;
+      const localResult = analyzeText(currentText);
+
+      // Check if this request was superseded
+      if (currentGeneration !== requestGenerationRef.current) {
+        return;
+      }
 
       // Step 2: Build summary from local findings
       setState(prev => ({ ...prev, progress: 50 }));
-      const summary = computeSummary(state.text, localResult.findings);
+      const summary = computeSummary(currentText, localResult.findings);
+
+      // Check if this request was superseded
+      if (currentGeneration !== requestGenerationRef.current) {
+        return;
+      }
 
       // Step 3: AI interpretation via Pollinations (if connected)
       let interpretation: InterpretationResponse | undefined;
@@ -57,11 +80,16 @@ export function useTextAnalysis() {
       if (getStoredToken()) {
         setState(prev => ({ ...prev, progress: 70 }));
         try {
-          interpretation = await interpretWithPollinations(state.text, localResult.findings);
+          interpretation = await interpretWithPollinations(currentText, localResult.findings);
         } catch (err) {
           console.warn('Pollinations interpretation failed:', err);
           // Continue without AI interpretation
         }
+      }
+
+      // Check if this request was superseded
+      if (currentGeneration !== requestGenerationRef.current) {
+        return;
       }
 
       setState(prev => ({ ...prev, progress: 90 }));
@@ -85,13 +113,16 @@ export function useTextAnalysis() {
         // Ignore aborted requests
         return;
       }
-      setState(prev => ({
-        ...prev,
-        isAnalyzing: false,
-        error: err instanceof Error ? err.message : 'Analysis failed',
-      }));
+      // Only set error if this is still the current generation
+      if (currentGeneration === requestGenerationRef.current) {
+        setState(prev => ({
+          ...prev,
+          isAnalyzing: false,
+          error: err instanceof Error ? err.message : 'Analysis failed',
+        }));
+      }
     }
-  }, [state.text, state.isAnalyzing]);
+  }, [state.isAnalyzing]);
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
@@ -102,6 +133,8 @@ export function useTextAnalysis() {
       pollinationsAbortRef.current.abort();
       pollinationsAbortRef.current = null;
     }
+    // Increment generation to invalidate any in-flight requests
+    requestGenerationRef.current += 1;
     setState(prev => ({ ...prev, isAnalyzing: false, progress: 0 }));
   }, []);
 
