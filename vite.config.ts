@@ -15,7 +15,7 @@ export default defineConfig({
   },
   // GitHub Pages deployment: set base to repo name
   // For local dev, base is '/'. For GitHub Pages, use '/<repo-name>/'
-  base: process.env.GITHUB_PAGES ? `/${process.env.GITHUB_REPO_NAME || 'voice-lens'}/` : '/',
+  base: '/voice-lens/',
   build: {
     // Disable eval for CSP compliance on GitHub Pages
     target: 'esnext',
