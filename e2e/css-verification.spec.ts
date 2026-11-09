@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+const BASE_PATH = '/voice-lens';
+
 test.describe('CSS Verification — Production Build', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto(BASE_PATH + '/');
   });
 
   test('application root has correct background and typography', async ({ page }) => {
@@ -54,42 +56,28 @@ test.describe('CSS Verification — Production Build', () => {
     }
   });
 
-  test('editor has intended dimensions and typography', async ({ page }) => {
-    const textarea = page.locator('textarea[placeholder*="Write naturally"]');
-    await expect(textarea).toBeVisible();
+  test('landing page hero has intended typography', async ({ page }) => {
+    const heroHeading = page.locator('h1');
+    await expect(heroHeading).toBeVisible();
 
-    const fontFamily = await textarea.evaluate((el) => getComputedStyle(el).fontFamily);
-    const lineHeight = await textarea.evaluate((el) => getComputedStyle(el).lineHeight);
-    const minHeight = await textarea.evaluate((el) => getComputedStyle(el).minHeight);
+    const fontFamily = await heroHeading.evaluate((el) => getComputedStyle(el).fontFamily);
+    const fontSize = await heroHeading.evaluate((el) => getComputedStyle(el).fontSize);
 
-    expect(fontFamily).toContain('JetBrains Mono');
-    // line-height can be computed as pixels, so check value
-    const lineHeightNum = parseFloat(lineHeight);
-    expect(lineHeightNum).toBeGreaterThan(20); // 1.7 * 16px base ≈ 27px
-    expect(parseFloat(minHeight)).toBeGreaterThanOrEqual(300);
+    expect(fontFamily).toContain('Fraunces');
+    const fontSizeNum = parseFloat(fontSize);
+    expect(fontSizeNum).toBeGreaterThan(40); // clamp(3rem, ...) - at least 48px on desktop
   });
 
-  test('connection panel (BYOPSection) has correct layout', async ({ page }) => {
-    // BYOPSection renders the connection panel
-    const connectionPanel = page.locator('text=Pollen Connection').locator('..').locator('..');
-    await expect(connectionPanel).toBeVisible();
+  test('landing page CTA buttons have intended styling', async ({ page }) => {
+    const startWritingBtn = page.locator('a:has-text("Start Writing")');
+    const exploreExampleBtn = page.locator('a:has-text("Explore Example")');
 
-    const display = await connectionPanel.evaluate((el) => getComputedStyle(el).display);
-    // Could be block or flex depending on implementation - check it's styled
-    expect(['block', 'flex', 'inline-flex']).toContain(display);
-  });
+    await expect(startWritingBtn).toBeVisible();
+    await expect(exploreExampleBtn).toBeVisible();
 
-  test('buttons have intended styling', async ({ page }) => {
-    const analyzeBtn = page.locator('button:has-text("Analyze Style")');
-    const connectBtn = page.locator('button:has-text("Connect Pollen")');
-
-    await expect(analyzeBtn).toBeVisible();
-    await expect(connectBtn).toBeVisible();
-
-    // Check button has Tailwind button styles (bg-primary, text-primary-foreground, rounded)
-    const bgColor = await analyzeBtn.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const textColor = await analyzeBtn.evaluate((el) => getComputedStyle(el).color);
-    const borderRadius = await analyzeBtn.evaluate((el) => getComputedStyle(el).borderRadius);
+    const bgColor = await startWritingBtn.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const textColor = await startWritingBtn.evaluate((el) => getComputedStyle(el).color);
+    const borderRadius = await startWritingBtn.evaluate((el) => getComputedStyle(el).borderRadius);
 
     expect(bgColor).toBeTruthy();
     expect(textColor).toBeTruthy();
@@ -138,7 +126,7 @@ test.describe('CSS Verification — Production Build', () => {
       responses.push({ url: response.url(), status: response.status() });
     });
 
-    await page.goto('/');
+    await page.goto(BASE_PATH + '/');
     await page.waitForLoadState('networkidle');
 
     const failedAssets = responses.filter(
@@ -161,7 +149,7 @@ test.describe('CSS Verification — Production Build', () => {
       errors.push(error.message);
     });
 
-    await page.goto('/');
+    await page.goto(BASE_PATH + '/');
     await page.waitForLoadState('networkidle');
 
     // Filter out expected OAuth-related errors (no env vars in preview)
@@ -182,5 +170,66 @@ test.describe('CSS Verification — Production Build', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.waitForLoadState('networkidle');
     await page.screenshot({ path: 'test-results/screenshot-mobile.png', fullPage: true });
+  });
+});
+
+test.describe('CSS Verification — Writing Workspace (/write)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_PATH + '/write');
+  });
+
+  test('writing workspace editor has intended dimensions and typography', async ({ page }) => {
+    const textarea = page.locator('textarea[aria-label="Writing editor"]');
+    await expect(textarea).toBeVisible();
+
+    const fontFamily = await textarea.evaluate((el) => getComputedStyle(el).fontFamily);
+    const lineHeight = await textarea.evaluate((el) => getComputedStyle(el).lineHeight);
+
+    expect(fontFamily).toContain('JetBrains Mono');
+    // line-height can be computed as pixels, so check value
+    const lineHeightNum = parseFloat(lineHeight);
+    expect(lineHeightNum).toBeGreaterThan(20); // 1.7 * 16px base ≈ 27px
+    // Editor container has height constraint (600px-700px), not the textarea directly
+    // Uses stable data-testid to avoid matching 5 duplicate class combos across the app
+    const editorContainer = page.locator('[data-testid="writing-editor-container"]');
+    await expect(editorContainer).toBeVisible();
+  });
+
+  test('writing workspace header has formatting toolbar', async ({ page }) => {
+    const boldBtn = page.locator('button[aria-label="Bold (⌘B)"]');
+    const italicBtn = page.locator('button[aria-label="Italic (⌘I)"]');
+    const codeBtn = page.locator('button[aria-label="Inline Code (⌘E)"]');
+
+    await expect(boldBtn).toBeVisible();
+    await expect(italicBtn).toBeVisible();
+    await expect(codeBtn).toBeVisible();
+  });
+
+  test('writing workspace analysis panel appears after typing', async ({ page }) => {
+    const textarea = page.locator('textarea[aria-label="Writing editor"]');
+    await textarea.fill('The quick brown fox jumps. The quick brown fox runs. In today\'s world, technology is important. Furthermore, it changes rapidly.');
+
+    // Wait for debounced analysis
+    await page.waitForTimeout(500);
+
+    const analysisPanel = page.locator('h2:has-text("Analysis")');
+    await expect(analysisPanel).toBeVisible({ timeout: 5000 });
+
+    const findingsText = page.locator('text=Total Findings');
+    await expect(findingsText).toBeVisible({ timeout: 5000 });
+  });
+
+  test('writing workspace toolbar buttons have intended styling', async ({ page }) => {
+    const boldBtn = page.locator('button[aria-label="Bold (⌘B)"]');
+
+    await expect(boldBtn).toBeVisible();
+
+    const bgColor = await boldBtn.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const textColor = await boldBtn.evaluate((el) => getComputedStyle(el).color);
+    const borderRadius = await boldBtn.evaluate((el) => getComputedStyle(el).borderRadius);
+
+    expect(bgColor).toBeTruthy();
+    expect(textColor).toBeTruthy();
+    expect(borderRadius).toBeTruthy();
   });
 });

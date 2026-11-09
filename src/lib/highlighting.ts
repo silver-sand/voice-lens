@@ -6,6 +6,8 @@ export const HIGHLIGHT_CLASS_MAP: Record<Finding['category'], string> = {
   sentence: 'highlight-sentence',
   transition: 'highlight-transition',
   vocabulary: 'highlight-vocabulary',
+  passive: 'highlight-passive',
+  hedging: 'highlight-hedging',
 };
 
 export function getHighlightClass(category: Finding['category']): string {

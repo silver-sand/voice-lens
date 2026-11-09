@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BYOPSection } from './BYOPSection';
 import { usePollinationsAuth } from '../../hooks/usePollinationsAuth';
@@ -21,6 +21,7 @@ describe('BYOPSection', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       accessToken: null,
+      isConfigured: true,
     });
   });
 
@@ -43,6 +44,7 @@ describe('BYOPSection', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       accessToken: 'test-token-12345678',
+      isConfigured: true,
     });
 
     render(<BYOPSection />);
@@ -60,6 +62,7 @@ describe('BYOPSection', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       accessToken: null,
+      isConfigured: true,
     });
 
     render(<BYOPSection />);
@@ -75,6 +78,7 @@ describe('BYOPSection', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       accessToken: null,
+      isConfigured: true,
     });
 
     render(<BYOPSection />);
@@ -111,6 +115,7 @@ describe('BYOPSection', () => {
       connect: mockConnect,
       disconnect: vi.fn(),
       accessToken: null,
+      isConfigured: true,
     });
 
     render(<BYOPSection />);
@@ -128,6 +133,7 @@ describe('BYOPSection', () => {
       connect: vi.fn(),
       disconnect: mockDisconnect,
       accessToken: 'test-token',
+      isConfigured: true,
     });
 
     render(<BYOPSection />);

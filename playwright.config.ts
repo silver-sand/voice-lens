@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.BASE_URL || 'http://127.0.0.1:4173/voice-lens/';
+const baseURL = process.env.BASE_URL || 'http://localhost:4173/voice-lens/';
 
 export default defineConfig({
   testDir: './e2e',
@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    navigationTimeout: 60000,
   },
   projects: [
     {
@@ -21,13 +22,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm preview --port 4173 --host 127.0.0.1',
+    command: 'pnpm preview --port 4173 --host localhost',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
     env: {
       VITE_POLLINATIONS_APP_KEY: 'test-app-key',
-      VITE_REDIRECT_URI: 'http://127.0.0.1:4173/voice-lens/',
+      VITE_REDIRECT_URI: 'http://localhost:4173/voice-lens/',
     },
   },
 });

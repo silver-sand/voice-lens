@@ -1,6 +1,18 @@
 import '@testing-library/jest-dom';
 import { vi, beforeAll, afterAll } from 'vitest';
 
+// Mock motion/react for tests (must be at top level before any imports)
+// Using any types since vi.mock is hoisted before React import
+vi.mock('motion/react', () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
+  useAnimation: () => ({ start: vi.fn(), stop: vi.fn(), set: vi.fn() }),
+}));
+
 // Mock matchMedia for components that use it
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

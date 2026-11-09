@@ -1,12 +1,27 @@
 export interface Finding {
   id: string;
-  category: 'repetition' | 'formulaic' | 'sentence' | 'transition' | 'vocabulary';
+  category: 'repetition' | 'formulaic' | 'sentence' | 'transition' | 'vocabulary' | 'passive' | 'hedging';
   severity: 'high' | 'medium' | 'low';
   title: string;
   description: string;
+  message?: string; // Alias for description, used by demo
   evidence: string[];
   suggestion?: string;
   rewrite?: string;
+  startOffset?: number; // Character offset in original text (for highlighting)
+  endOffset?: number;
+}
+
+// Convenience type for demo findings (subset with required fields)
+export interface DemoFinding {
+  id: string;
+  category: 'repetition' | 'formulaic' | 'sentence' | 'transition' | 'vocabulary';
+  severity: 'high' | 'medium' | 'low';
+  message: string;
+  evidence: string;
+  suggestion: string;
+  startOffset: number;
+  endOffset: number;
 }
 
 export interface InterpretationResponse {

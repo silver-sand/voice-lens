@@ -38,7 +38,7 @@ describe('ComparisonView', () => {
   it('shows empty state when no rewrite available', () => {
     render(<ComparisonView {...defaultProps} />);
     expect(screen.getByText('No rewrite available')).toBeInTheDocument();
-    expect(screen.getByText('Connect your Pollen account and run an analysis to generate a rewritten version.')).toBeInTheDocument();
+    expect(screen.getByText('Connect your Pollinations account and run an analysis to generate a rewritten version.')).toBeInTheDocument();
   });
 
   it('shows legend in empty state', () => {
